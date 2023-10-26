@@ -65,7 +65,8 @@ if not os.path.isdir(extracted_tar_sources):
 p = PackageManager.from_picked_json("dump_jammy_main.picked.json")
 
 
-packages_available = p.all_pkg_entries
+# packages_available = p.all_pkg_entries
+packages_available = list(p.all_pkg_entries.keys())
 
 # for making package installation noninterative
 cmd = "(" + "export DEBIAN_FRONTEND=noninteractive" + ")"
@@ -79,7 +80,9 @@ dl_cnt = 0
 # checked deps
 checked_available = set()
 
-for pkgs in packages_available:
+start_idx = 300
+
+for pkgs in packages_available[start_idx:]:
     reverse_dependencies = []
     dependency_list = p.dependency_map[pkgs]
     for dependencies in dependency_list:
@@ -209,8 +212,8 @@ for subdir, dirs, files in os.walk(local_download_folder_for_sources):
                 print(f"executing>> {cmd}")
                 res = subprocess.call(cmd, shell=True)
                 if res == 0:
-                    print(f">> success")
                     success_cnt += 1
+                    print(f">> success[{success_cnt}]")
                 else:
                     print(f">> failed")
 
