@@ -84,9 +84,11 @@ for pkgs in packages_available:
     dependency_list = p.dependency_map[pkgs]
     for dependencies in dependency_list:
         if dependencies not in checked_available:
-            print(f">> dep:{dependencies} already checked")
             subprocess.call(["sudo apt -yq install", str(dependencies)], shell=True)
             checked_available.add(dependencies)
+        else:
+            print(f">> dep:{dependencies} already checked")
+
         # install all reverse dependencies might be too slow (not necessary), uncomment if needed
         # for reverse_deps in p.reverse_dependency_map[dependencies]:
         #    subprocess.call(['sudo apt -yq install', str(reverse_deps)], shell=True)
