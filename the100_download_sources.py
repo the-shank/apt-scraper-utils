@@ -21,7 +21,7 @@ import subprocess
 # make sure paths are set correctly
 # path the the mirror file
 source_file_to_read_packages_from = (
-    "/home/shank/code/research/DetectERR/the100/apt-scraper-utils/Sources-JammyMain"
+    "/workdisk/shank/misc/the100/apt-scraper-utils/Sources-JammyMain"
 )
 
 # mirror url
@@ -29,18 +29,21 @@ mirror_url = "http://mirror.math.ucdavis.edu/ubuntu/"
 
 # sources will be downloaded here
 local_download_folder_for_sources = (
-    "/home/shank/code/research/DetectERR/the100/apt-scraper-utils/apt_scraper_sources"
+    "/workdisk/shank/misc/the100/apt-scraper-utils/apt_scraper_sources"
 )
 
 # script will extract and build it here
 extracted_tar_sources = (
-    "/home/shank/code/research/DetectERR/the100/apt-scraper-utils/extracted_tar_sources"
+    "/workdisk/shank/misc/the100/apt-scraper-utils/extracted_tar_sources"
 )
 
 # bitcodes will here extracted here
 afl_fuzzing_sources = (
-    "/home/shank/code/research/DetectERR/the100/apt-scraper-utils/afl_sources"
+    "/workdisk/shank/misc/the100/apt-scraper-utils/afl_sources"
 )
+
+# results file
+results_file = "/workdisk/shank/misc/the100/apt-scraper-utils/results.txt"
 
 if not os.path.isdir(local_download_folder_for_sources):
     cmd = "(" + "mkdir " + local_download_folder_for_sources + ")"
@@ -82,144 +85,150 @@ checked_available = set()
 
 start_idx = 300
 
-for pkgs in packages_available[start_idx:]:
-    reverse_dependencies = []
-    dependency_list = p.dependency_map[pkgs]
-    for dependencies in dependency_list:
-        if dependencies not in checked_available:
-            subprocess.call(["sudo apt -yq install", str(dependencies)], shell=True)
-            checked_available.add(dependencies)
-        else:
-            print(f">> dep:{dependencies} already checked")
-
-        # install all reverse dependencies might be too slow (not necessary), uncomment if needed
-        # for reverse_deps in p.reverse_dependency_map[dependencies]:
-        #    subprocess.call(['sudo apt -yq install', str(reverse_deps)], shell=True)
-        reverse_dependencies.extend(p.reverse_dependency_map[dependencies])
-
-    print()
-    print("...")
-    print("DOWNLOADING " + str(pkgs) + "from the mirror...")
-    print("...")
-    p.download_package_source(pkgs, local_download_folder_for_sources)
-    dl_cnt += 1
-    print(f">> dl_cnt={dl_cnt}")
-
-    # for lib in reverse_dependencies:
-    #     if find_library(lib) != None:
-    #         print()
-    #         print("...")
-    #         print("DOWNLOADING " + str(pkgs) + "from the mirror...")
-    #         print("...")
-    #         p.download_package_source(pkgs, local_download_folder_for_sources)
-    #         dl_cnt += 1
-    #         print(f">> dl_cnt={dl_cnt}")
-    #         break
-
-    # all_dep_libs_available = True
-    # print(f">> len(reverse_dependencies)={len(reverse_dependencies)}")
-    # for lib in reverse_dependencies:
-    #     print(f">> checking for lib:{lib}")
-    #     if find_library(lib) is None:
-    #         all_dep_libs_available = False
-    #         break
-    #
-    # if all_dep_libs_available:
-    #     print()
-    #     print("...")
-    #     print("DOWNLOADING " + str(pkgs) + "from the mirror...")
-    #     print("...")
-    #     p.download_package_source(pkgs, local_download_folder_for_sources)
-    #     dl_cnt += 1
-    #     print(f">> dl_cnt={dl_cnt}")
-
-    if dl_cnt == 300:
-        print(f">> downloaded {dl_cnt} packages")
-        break
+# for pkgs in packages_available[start_idx:]:
+#     reverse_dependencies = []
+#     dependency_list = p.dependency_map[pkgs]
+#     for dependencies in dependency_list:
+#         if dependencies not in checked_available:
+#             subprocess.call(["sudo apt -yq install", str(dependencies)], shell=True)
+#             checked_available.add(dependencies)
+#         else:
+#             print(f">> dep:{dependencies} already checked")
+#
+#         # install all reverse dependencies might be too slow (not necessary), uncomment if needed
+#         # for reverse_deps in p.reverse_dependency_map[dependencies]:
+#         #    subprocess.call(['sudo apt -yq install', str(reverse_deps)], shell=True)
+#         reverse_dependencies.extend(p.reverse_dependency_map[dependencies])
+#
+#     print()
+#     print("...")
+#     print("DOWNLOADING " + str(pkgs) + "from the mirror...")
+#     print("...")
+#     p.download_package_source(pkgs, local_download_folder_for_sources)
+#     dl_cnt += 1
+#     print(f">> dl_cnt={dl_cnt}")
+#
+#     # for lib in reverse_dependencies:
+#     #     if find_library(lib) != None:
+#     #         print()
+#     #         print("...")
+#     #         print("DOWNLOADING " + str(pkgs) + "from the mirror...")
+#     #         print("...")
+#     #         p.download_package_source(pkgs, local_download_folder_for_sources)
+#     #         dl_cnt += 1
+#     #         print(f">> dl_cnt={dl_cnt}")
+#     #         break
+#
+#     # all_dep_libs_available = True
+#     # print(f">> len(reverse_dependencies)={len(reverse_dependencies)}")
+#     # for lib in reverse_dependencies:
+#     #     print(f">> checking for lib:{lib}")
+#     #     if find_library(lib) is None:
+#     #         all_dep_libs_available = False
+#     #         break
+#     #
+#     # if all_dep_libs_available:
+#     #     print()
+#     #     print("...")
+#     #     print("DOWNLOADING " + str(pkgs) + "from the mirror...")
+#     #     print("...")
+#     #     p.download_package_source(pkgs, local_download_folder_for_sources)
+#     #     dl_cnt += 1
+#     #     print(f">> dl_cnt={dl_cnt}")
+#
+#     if dl_cnt == 300:
+#         print(f">> downloaded {dl_cnt} packages")
+#         break
 
 
 success_cnt = 0
+target_success_cnt = 100
+# target_success_cnt = 2
 # Extract the tar sources, build them and install and put them in another folder
-for subdir, dirs, files in os.walk(local_download_folder_for_sources):
+with open(results_file, "w") as outf:
+    for subdir, dirs, files in os.walk(local_download_folder_for_sources):
+        for File in files:
+            if ".orig." in str(File):
 
-    for File in files:
-        if ".orig." in str(File):
-
-            # extract the archive
-            cmd = (
-                "("
-                + "cd "
-                + local_download_folder_for_sources
-                + " && "
-                + "tar -xf "
-                + str(File)
-                + ")"
-            )
-            print(f"executing>> {cmd}")
-            subprocess.call(cmd, shell=True)
-
-            archive_parts = File.split(".orig")
-            underscore_split = archive_parts[0].split("_")
-
-            directory_name = ""
-            try:
-                directory_name = (
-                    str(underscore_split[0]) + "-" + str(underscore_split[1])
-                )
-            except:
-                continue
-
-            configure_path = (
-                local_download_folder_for_sources
-                + "/"
-                + directory_name
-                + "/"
-                + "configure"
-            )
-
-            # check if a configure script exists in the directory
-            if os.path.exists(configure_path) == True:
-                print(File)
-                # now cd into the archive
-                # cmd = (
-                #     "("
-                #     + f"cd {local_download_folder_for_sources}/{directory_name}"
-                #     + " && "
-                #     + "export LLVM_COMPILER=clang"
-                #     + " && "
-                #     + "export WLLVM_OUTPUT_LEVEL=Debug"
-                #     + " && "
-                #     + f"export WLLVM_OUTPUT_FILE=/tmp/{str(File)}_wllvm.log"
-                #     + " && "
-                #     + "CC=wllvm CXX=wllvm++ yes '' | ./configure"
-                #     + " && "
-                #     + "make CC=wllvm CXX=wllvm++ -j12"
-                #     + " && "
-                #     + f"make CC=wllvm CXX=wllvm++ install DESTDIR={extracted_tar_sources}/{directory_name}"
-                #     + ")"
-                # )
+                # extract the archive
                 cmd = (
                     "("
-                    + f"cd {local_download_folder_for_sources}/{directory_name}"
+                    + f"cd {local_download_folder_for_sources}"
                     + " && "
-                    + "CC=clang CXX=clang++ CFLAGS='-g -O0' CXXFLAGS='-g -O0' yes '' | ./configure"
-                    + " && "
-                    + "make CC=clang CXX=clang++ -j12"
-                    + " && "
-                    + f"make CC=clang CXX=clang++ install DESTDIR={extracted_tar_sources}/{directory_name}"
+                    + f"tar -xf {str(File)}"
                     + ")"
                 )
                 print(f"executing>> {cmd}")
-                res = subprocess.call(cmd, shell=True)
-                if res == 0:
-                    success_cnt += 1
-                    print(f">> success[{success_cnt}]")
-                else:
-                    print(f">> failed")
+                subprocess.call(cmd, shell=True)
 
-                if success_cnt == 100:
-                    print(f">> success_cnt={str(success_cnt)}")
-                    break
+                archive_parts = File.split(".orig")
+                underscore_split = archive_parts[0].split("_")
+
+                directory_name = ""
+                try:
+                    directory_name = (
+                        str(underscore_split[0]) + "-" + str(underscore_split[1])
+                    )
+                except:
+                    continue
+
+                configure_path = (
+                    local_download_folder_for_sources
+                    + "/"
+                    + directory_name
+                    + "/"
+                    + "configure"
+                )
+
+                # check if a configure script exists in the directory
+                if os.path.exists(configure_path) == True:
+                    print(File)
+                    # now cd into the archive
+                    # cmd = (
+                    #     "("
+                    #     + f"cd {local_download_folder_for_sources}/{directory_name}"
+                    #     + " && "
+                    #     + "export LLVM_COMPILER=clang"
+                    #     + " && "
+                    #     + "export WLLVM_OUTPUT_LEVEL=Debug"
+                    #     + " && "
+                    #     + f"export WLLVM_OUTPUT_FILE=/tmp/{str(File)}_wllvm.log"
+                    #     + " && "
+                    #     + " make clean"
+                    #     + " && "
+                    #     + "CC=wllvm CXX=wllvm++ CFLAGS='-g -O0' CXXFLAGS='-g -O0' yes '' | ./configure"
+                    #     + " && "
+                    #     + "make CC=wllvm CXX=wllvm++ -j12"
+                    #     + " && "
+                    #     + f"make CC=wllvm CXX=wllvm++ install DESTDIR={extracted_tar_sources}/{directory_name}"
+                    #     + ")"
+                    # )
+                    cmd = (
+                        "("
+                        + f"cd {local_download_folder_for_sources}/{directory_name}"
+                        + " && "
+                        + "make clean"
+                        + " && "
+                        + "CC=clang CXX=clang++ CFLAGS='-g -O0' CXXFLAGS='-g -O0' yes '' | ./configure"
+                        + " && "
+                        + "bear make CC=clang CXX=clang++ -j60"
+                        + " && "
+                        + f"make CC=clang CXX=clang++ install DESTDIR={extracted_tar_sources}/{directory_name}"
+                        + ")"
+                    )
+                    print(f"executing>> {cmd}")
+                    res = subprocess.call(cmd, shell=True)
+                    if res == 0:
+                        success_cnt += 1
+                        print(f">> success[{success_cnt}]")
+                        outf.write(f"{directory_name},success\n")
+                    else:
+                        print(f">> failed")
+                        outf.write(f"{directory_name},failed\n")
+
+                    if success_cnt == target_success_cnt:
+                        print(f">> success_cnt={str(success_cnt)}")
+                        break
 
 # # run extract-bc to get the bit-code files form the binaries
 # for subdir, dirs, files in os.walk(extracted_tar_sources):
@@ -229,16 +238,11 @@ for subdir, dirs, files in os.walk(local_download_folder_for_sources):
 #         for File in files:
 #             cmd = (
 #                 "("
-#                 + "cd "
-#                 + subdir
+#                 + f"cd {subdir}"
 #                 + " && "
-#                 + "extract-bc "
-#                 + File
+#                 + f"extract-bc {File}"
 #                 + " && "
-#                 + "mv "
-#                 + File
-#                 + ".bc "
-#                 + afl_fuzzing_sources
+#                 + f"mv {File}.bc {afl_fuzzing_sources}"
 #                 + ")"
 #             )
 #             print(f"executing>> {cmd}")
@@ -253,16 +257,11 @@ for subdir, dirs, files in os.walk(local_download_folder_for_sources):
 #             if (".a") in File:
 #                 cmd = (
 #                     "("
-#                     + "cd "
-#                     + subdir
+#                     + f"cd {subdir}"
 #                     + " && "
-#                     + "extract-bc -b "
-#                     + File
+#                     + f"extract-bc -b {File}"
 #                     + " && "
-#                     + "mv "
-#                     + File
-#                     + ".bc "
-#                     + afl_fuzzing_sources
+#                     + f"mv {File}.bc {afl_fuzzing_sources}"
 #                     + ")"
 #                 )
 #                 print(f"executing>> {cmd}")
