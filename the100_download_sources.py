@@ -42,8 +42,10 @@ afl_fuzzing_sources = (
     "/workdisk/shank/misc/the100/apt-scraper-utils/afl_sources"
 )
 
-# results file
-results_file = "/workdisk/shank/misc/the100/apt-scraper-utils/results.txt"
+# results file(s)
+compilation_results_file = (
+    "/home/shank/code/research/the100/apt-scraper-utils/results_compilation.txt"
+)
 
 if not os.path.isdir(local_download_folder_for_sources):
     cmd = "(" + "mkdir " + local_download_folder_for_sources + ")"
@@ -139,27 +141,63 @@ start_idx = 300
 #     if dl_cnt == 300:
 #         print(f">> downloaded {dl_cnt} packages")
 #         break
+# start_idx = 0
+start_idx = 1400
+
+for (i, pkgs) in enumerate(packages_available[start_idx:]):
+    print(f">> processing i:{i}")
+
+    reverse_dependencies = []
+    dependency_list = p.dependency_map[pkgs]
+    for dependencies in dependency_list:
+        if dependencies not in checked_available:
+            cmd = f"sudo apt -yq install {dependencies}"
+            print(f">> executing>> {cmd}")
+            # subprocess.call(["sudo apt -yq install", str(dependencies)], shell=True)
+            subprocess.call(cmd, shell=True)
+            checked_available.add(dependencies)
+        else:
+            print(f">> dep:{dependencies} already checked")
+
+        # install all reverse dependencies might be too slow (not necessary), uncomment if needed
+        # for reverse_deps in p.reverse_dependency_map[dependencies]:
+        #    subprocess.call(['sudo apt -yq install', str(reverse_deps)], shell=True)
+        reverse_dependencies.extend(p.reverse_dependency_map[dependencies])
+
+    print()
+    print("...")
+    print("DOWNLOADING " + str(pkgs) + "from the mirror...")
+    print("...")
+    p.download_package_source(pkgs, local_download_folder_for_sources)
+    dl_cnt += 1
+    print(f">> dl_cnt={dl_cnt}")
+
+    if dl_cnt == 500:
+        print(f">> downloaded {dl_cnt} packages")
+        break
 
 
 success_cnt = 0
 target_success_cnt = 100
 # target_success_cnt = 2
 # Extract the tar sources, build them and install and put them in another folder
-with open(results_file, "w") as outf:
+with open(compilation_results_file, "a+") as outf:
+    # get list of already processed packages
+    outf.seek(0)
+    prev_processed = set()
+    for line in outf.readlines():
+        line = line.strip()
+        parts = line.split(",")
+        pkg, res = parts[0], parts[1]
+        print(f">> adding to prev_processed: {pkg}")
+        prev_processed.add(pkg)
+        if res == "success":
+            success_cnt += 1
+
+    # process all downloaded packages
     for subdir, dirs, files in os.walk(local_download_folder_for_sources):
         for File in files:
             if ".orig." in str(File):
-
-                # extract the archive
-                cmd = (
-                    "("
-                    + f"cd {local_download_folder_for_sources}"
-                    + " && "
-                    + f"tar -xf {str(File)}"
-                    + ")"
-                )
-                print(f"executing>> {cmd}")
-                subprocess.call(cmd, shell=True)
 
                 archive_parts = File.split(".orig")
                 underscore_split = archive_parts[0].split("_")
@@ -172,6 +210,23 @@ with open(results_file, "w") as outf:
                 except:
                     continue
 
+                print(f">> directory_name: {directory_name}")
+
+                if directory_name in prev_processed:
+                    print(f">> skipping {directory_name} (reason: prev_processed)")
+                    continue
+
+                # extract the archive
+                cmd = (
+                    "("
+                    + f"cd {local_download_folder_for_sources}"
+                    + " && "
+                    + f"tar -xf {str(File)}"
+                    + ")"
+                )
+                print(f"executing>> {cmd}")
+                subprocess.call(cmd, shell=True)
+
                 configure_path = (
                     local_download_folder_for_sources
                     + "/"
@@ -182,7 +237,7 @@ with open(results_file, "w") as outf:
 
                 # check if a configure script exists in the directory
                 if os.path.exists(configure_path) == True:
-                    print(File)
+                    # print(File)
                     # now cd into the archive
                     # cmd = (
                     #     "("
@@ -207,11 +262,13 @@ with open(results_file, "w") as outf:
                         "("
                         + f"cd {local_download_folder_for_sources}/{directory_name}"
                         + " && "
-                        + "make clean"
-                        + " && "
                         + "CC=clang CXX=clang++ CFLAGS='-g -O0' CXXFLAGS='-g -O0' yes '' | ./configure"
                         + " && "
-                        + "bear make CC=clang CXX=clang++ -j60"
+                        + "make clean"
+                        + " && "
+                        + "bear -- make CC=clang CXX=clang++ -j$(nproc)"
+                        + " && "
+                        + f"rm -rf {extracted_tar_sources}/{directory_name}"
                         + " && "
                         + f"make CC=clang CXX=clang++ install DESTDIR={extracted_tar_sources}/{directory_name}"
                         + ")"
